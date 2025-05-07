@@ -129,51 +129,24 @@ public class UserService {
         }
     }
 
-    /**
-     * Adds a product to the user's cart.
-     * Logs the addition of the product to the cart.
-     *
-     * @param sessionKey The session key of the authenticated user.
-     * @param email The email of the user.
-     * @param productID The ID of the product to add to the cart.
-     * @param storeName The name of the store where the product is located.
-     * @return A Result object indicating success or failure of the operation.
-     */
-    public Result<String> addToUserCart(String sessionKey, String email, String productID, String storeName) {
+    public Result<String> addToCart(String sessionKey,
+                                    String productId,
+                                    String storeName) {
         try {
             authenticationService.checkSessionKey(sessionKey);
-            User user = userRepository.findUserByEmail(email);
-            user.addToCart(storeName, productID);
-            LoggerWrapper.info("Added product to user cart: " + email + ", Product ID: " + productID);  // Log product addition to cart
-            return Result.success("Add item to cart successfully!");
+            String owner = authenticationService.getUserBySession(sessionKey);
+            if (owner.startsWith("g-")) {
+                ShoppingCart cart = guestService.cart(sessionKey);
+                cart.add(storeName, productId, 1);
+            } else {
+                User user = userRepository.findUserByEmail(owner);
+                user.addToCart(storeName, productId);
+            }
+            return Result.success("Added item to cart successfully!");
         } catch (Exception e) {
-            String errorMessage = "Failed to add item to cart: " + e.getMessage();
-            LoggerWrapper.error(errorMessage, e);  // Log error on failure
-            return Result.failure(errorMessage);
+            return Result.failure("Cannot add to cart: " + e.getMessage());
         }
     }
-
-    /**
-     * Adds a product to the guest's cart.
-     * Logs the addition of the product to the guest's cart.
-     *
-     * @param guestToken The token of the guest session.
-     * @param productId The ID of the product to add to the cart.
-     * @param storeName The name of the store where the product is located.
-     * @return A Result object indicating success or failure of the operation.
-     */
-    public Result<String> addToGuestCart(String guestToken, String productId, String storeName) {
-        try {
-            ShoppingCart cart = guestService.cart(guestToken);  // Retrieve guest's cart
-            cart.add(storeName, productId, 1);
-            LoggerWrapper.info("Added product to guest cart: " + guestToken + ", Product ID: " + productId);  // Log product addition to guest cart
-            return Result.success("Added item to guest cart successfully!");
-        } catch (Exception e) {
-            LoggerWrapper.error("Error adding item to guest cart: " + e.getMessage(), e);  // Log error on failure
-            return Result.failure(e.getMessage());
-        }
-    }
-
     /**
      * Purchases the shopping cart for a user.
      * Logs the cart purchase process.
@@ -202,22 +175,14 @@ public class UserService {
      * Logs the removal of the product from the cart.
      *
      * @param sessionKey The session key of the authenticated user.
-     * @param email The email of the user.
-     * @param productID The ID of the product to remove from the cart.
+     * @param productId The ID of the product to remove from the cart.
      * @param storeName The name of the store where the product is located.
      * @return A Result object indicating success or failure of the operation.
      */
-    public Result<String> removeFromUserCart(String sessionKey, String email, String productID, String storeName) {
-        try {
-            authenticationService.checkSessionKey(sessionKey);
-            User user = userRepository.findUserByEmail(email);
-            user.removeFromCart(storeName, productID);
-            LoggerWrapper.info("Removed product from user cart: " + email + ", Product ID: " + productID);  // Log product removal from cart
-            return Result.success("Removed item from cart successfully!");
-        } catch (Exception e) {
-            LoggerWrapper.error("Error removing item from user cart: " + e.getMessage(), e);  // Log error on failure
-            return Result.failure(e.getMessage());
-        }
+    public Result<String> removeFromCart(String sessionKey,
+                                         String productId,
+                                         String storeName) {
+        return changeCartQuantity(sessionKey, productId, storeName, 0);
     }
 
     /**
@@ -225,29 +190,33 @@ public class UserService {
      * Logs the modification of the product quantity.
      *
      * @param sessionKey The session key of the authenticated user.
-     * @param email The email of the user.
-     * @param productID The ID of the product to modify.
+     * @param productId The ID of the product to modify.
      * @param storeName The name of the store where the product is located.
-     * @param quantity The new quantity of the product.
+     * @param newQty The new quantity of the product.
      * @return A Result object indicating success or failure of the operation.
      */
-    public Result<String> modifyProductQuantityInCartItem(
-            String sessionKey,
-            String email,
-            String productID,
-            String storeName,
-            int quantity) {
+    public Result<String> changeCartQuantity(String sessionKey,
+                                             String productId,
+                                             String storeName,
+                                             int newQty) {
         try {
             authenticationService.checkSessionKey(sessionKey);
-            User user = userRepository.findUserByEmail(email);
-            user.cart().changeQty(storeName, productID, quantity);
-            LoggerWrapper.info("Modified product quantity in cart: " + email + ", Product ID: " + productID + ", New Quantity: " + quantity);  // Log quantity modification
-            return Result.success("Modified product quantity in cart successfully!");
+            String owner = authenticationService.getUserBySession(sessionKey);
+
+            if (owner.startsWith("g-")) {
+                ShoppingCart cart = guestService.cart(sessionKey);
+                cart.changeQty(storeName, productId, newQty);
+            } else {
+                User user = userRepository.findUserByEmail(owner);
+                user.cart().changeQty(storeName, productId, newQty);
+            }
+
+            return Result.success("Cart updated");
         } catch (Exception e) {
-            LoggerWrapper.error("Error modifying product quantity in cart: " + e.getMessage(), e);  // Log error on failure
-            return Result.failure(e.getMessage());
+            return Result.failure("Cannot update cart: " + e.getMessage());
         }
     }
+
 
 
     public Result<List<BasketDTO>> getUserCart(String sessionKey, String email) {
