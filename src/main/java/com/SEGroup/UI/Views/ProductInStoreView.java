@@ -17,12 +17,12 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-@Route(value = "product/:id/:img", layout = MainLayout.class)
+@Route(value = "store/:id1/product/:id2/:img", layout = MainLayout.class)
 @PageTitle("Product details")
-public class ProductView extends VerticalLayout implements HasUrlParameter<String> {
+public class ProductInStoreView extends VerticalLayout implements HasUrlParameter<String> , BeforeEnterObserver  {
 
     public RatingView ratingView;
-    private RatingProductPresenter ratingProductPresenter;
+    public RatingProductPresenter ratingProductPresenter;
     /* tiny demo “repository” ---------------------------------- */
     private static final Map<String, Product> repo = Map.of(
             "P1",  new Product("P1",  "Red Gun",   50, "Kaplan Store", 4),
@@ -36,8 +36,8 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
     private final Span  meta  = new Span();
     private final Span  stars = new Span();
     private final Button add  = new Button("Add to cart", VaadinIcon.CART.create());
-
-    public ProductView() {
+    @Override
+    public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         setAlignItems(Alignment.CENTER);
         setPadding(true);
         pic.setWidth("320px");
@@ -48,10 +48,27 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
         ratingView = new RatingView();
         add("Your rating:");
         add(ratingView);
-
-//        ratingView.addClickListener(evt -> new RatingProductPresenter(this,"1"));
-
+        String storeName  = beforeEnterEvent.getRouteParameters()
+                .get("id1").orElse("");
+        String productId  = beforeEnterEvent.getRouteParameters()
+                .get("id2").orElse("");
+        ratingProductPresenter = new RatingProductPresenter(this, storeName, productId);
     }
+
+//    public ProductInStoreView() {
+//        setAlignItems(Alignment.CENTER);
+//        setPadding(true);
+//        pic.setWidth("320px");
+//        pic.getStyle().set("border-radius", "8px");
+//
+//        add(new VerticalLayout(name, pic, stars, meta, add));
+//        add.addClickListener(e -> Notification.show("Added"));
+//        ratingView = new RatingView();
+//        add("Your rating:");
+//        add(ratingView);
+//         ratingProductPresenter = new RatingProductPresenter(this,);
+//        ratingView.addClickListener(evt -> new RatingProductPresenter(this,"1"));
+//    }
 
     /* read both parameters ------------------------------------ */
     @Override
@@ -75,6 +92,8 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
         stars.setText("★".repeat(p.rating()) + "☆".repeat(5 - p.rating()));
         pic.setSrc(img);
     }
+
+
 
 
     private record Product(String id, String name, int price,

@@ -27,6 +27,8 @@ public class MainLayout extends AppLayout {
     private  Span   greeting;
     private String userName;
     static MainLayout instance;
+    public static Button searchBtn;
+    public static TextField search;
     public MainLayout() {
         ServiceLocator.initialize(
                 new GuestRepository(),
@@ -53,14 +55,14 @@ public class MainLayout extends AppLayout {
 //                .set("font-size", "1.8em")
 //                .set("text-shadow", "1px 1px 2px rgba(0,0,0,0.2)");
 
-        TextField search = new TextField();
+        search = new TextField();
         search.setPlaceholder("Search");
         search.setWidth("200px");
         search.getStyle()
                 .set("border-radius", "20px")
                 .set("padding", "0.3em 1em")
                 .set("background-color", "#fff");
-        Button searchBtn = new Button(VaadinIcon.SEARCH.create());
+        searchBtn = new Button(VaadinIcon.SEARCH.create());
         searchBtn.getStyle()
                 .set("border-radius", "50%")
                 .set("background-color", "#3f3f46")
@@ -111,7 +113,7 @@ public class MainLayout extends AppLayout {
                 nav("Catalog", CatalogView.class, VaadinIcon.LIST),
                 nav("My cart", CartView.class, VaadinIcon.CART),
                 nav("All Stores", AllStoresView.class, VaadinIcon.STORAGE),
-                nav("Notifications", SignInView.class, VaadinIcon.BELL)
+                nav("Notifications", NotificationView.class, VaadinIcon.BELL)
         );
         tabs.setOrientation(Tabs.Orientation.VERTICAL);
         addToDrawer(tabs);

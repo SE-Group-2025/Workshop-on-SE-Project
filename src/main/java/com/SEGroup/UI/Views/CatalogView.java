@@ -1,6 +1,7 @@
 package com.SEGroup.UI.Views;
 
 import com.SEGroup.UI.MainLayout;
+import com.SEGroup.UI.Presenter.SearchProductPresenter;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -16,6 +17,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.router.*;
+import org.springframework.security.core.parameters.P;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -28,14 +30,28 @@ import java.util.stream.IntStream;
 @PageTitle("Product catalog")
 public class CatalogView extends VerticalLayout {
 
-    private final List<Product> allProducts = fakeProducts();
+    private List<Product> allProducts;
+    private List<Product> searchedProducts;
     private final Div catalogContainer = new Div();
     private final HorizontalLayout priceFilterLayout = new HorizontalLayout();
     private final HorizontalLayout categoryFilterLayout = new HorizontalLayout();
+    private SearchProductPresenter searchProductPresenter;
     private boolean priceVisible = false;
     private boolean categoryVisible = false;
 
+
     public CatalogView() {
+        this.addAttachListener(evt -> {
+            // the parent of this view is your MainLayout
+            this.getParent()
+                    .filter(p -> p instanceof MainLayout)
+                    .map(p -> (MainLayout)p)
+                    .ifPresent(main -> {
+                        new SearchProductPresenter(this, main.search, main.searchBtn);
+                    });
+        });
+        this.allProducts = fakeProducts();
+        this.searchedProducts = fakeProducts();
         setWidthFull();
         setPadding(true);
         setSpacing(false);
@@ -72,7 +88,7 @@ public class CatalogView extends VerticalLayout {
         // Price filter
         NumberField maxPriceField = new NumberField();
         maxPriceField.setPlaceholder("Max price");
-        double max = allProducts.stream().mapToDouble(Product::price).max().orElse(0);
+        double max = searchedProducts.stream().mapToDouble(Product::price).max().orElse(0);
         maxPriceField.setMin(0);
         maxPriceField.setMax(max);
         maxPriceField.setStep(1);
@@ -85,7 +101,7 @@ public class CatalogView extends VerticalLayout {
         // Category filter
         ComboBox<String> categoryCombo = new ComboBox<>();
         categoryCombo.setPlaceholder("Category");
-        categoryCombo.setItems(allProducts.stream()
+        categoryCombo.setItems(searchedProducts.stream()
                 .map(Product::category)
                 .distinct()
                 .collect(Collectors.toList()));
@@ -105,9 +121,9 @@ public class CatalogView extends VerticalLayout {
     }
 
     private void updateCatalog(Double maxPrice, String category) {
-        double limit = maxPrice != null ? maxPrice : allProducts.stream().mapToDouble(Product::price).max().orElse(Double.MAX_VALUE);
+        double limit = maxPrice != null ? maxPrice : searchedProducts.stream().mapToDouble(Product::price).max().orElse(Double.MAX_VALUE);
         catalogContainer.removeAll();
-        allProducts.stream()
+        searchedProducts.stream()
                 .filter(p -> p.price() <= limit)
                 .filter(p -> category == null || p.category().equals(category))
                 .forEach(p -> {
@@ -178,6 +194,13 @@ public class CatalogView extends VerticalLayout {
                         "https://picsum.photos/seed/" + i + "/380/280",
                         i % 3 == 0 ? "Sports" : i % 3 == 1 ? "Office" : "Home"
                 )).toList();
+    }
+    public void showProducts(List<Product> products) {
+        this.searchedProducts = products;
+        updateCatalog(null, null);
+    }
+    public List<Product> getAllProducts(){
+        return this.allProducts;
     }
 
     public record Product(String id, String name, double price, String imageUrl, String category) {}

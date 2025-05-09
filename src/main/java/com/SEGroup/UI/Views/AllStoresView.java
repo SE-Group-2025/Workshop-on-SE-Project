@@ -1,6 +1,9 @@
 package com.SEGroup.UI.Views;
 
+import com.SEGroup.DTO.StoreDTO;
 import com.SEGroup.UI.MainLayout;
+import com.SEGroup.UI.Presenter.AllStoresPresenter;
+import com.SEGroup.UI.ServiceLocator;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
@@ -15,11 +18,13 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteParameters;
 
 import java.util.List;
+import java.util.ResourceBundle;
 
 @Route(value = "stores", layout = MainLayout.class)
 @PageTitle("Store Listings")
 public class AllStoresView extends VerticalLayout {
 
+    private AllStoresPresenter allStoresPresenter;
     public AllStoresView() {
         setSizeFull();
         setPadding(true);
@@ -60,6 +65,13 @@ public class AllStoresView extends VerticalLayout {
 
         // Store cards
         fakeStores().forEach(store -> add(createStoreCard(store)));
+        // View stores in backend
+//        allStoresPresenter = new AllStoresPresenter();
+//        allStoresPresenter.getStores().stream().map(store -> {
+//            add(createStoreCard(store));
+//            return null;
+//        });
+
     }
 
     private Component createStoreCard(Store store) {
@@ -121,5 +133,5 @@ public class AllStoresView extends VerticalLayout {
         );
     }
 
-    record Store(String name, String owner, int rating, String description) {}
+    public record Store(String name, String owner, double rating, String description) {}
 }
