@@ -1,11 +1,7 @@
-package com.SEGroup.Domain.Store.Discount;
+package com.SEGroup.Domain.Discount;
 
-import com.SEGroup.Domain.ProductCatalog.CatalogProduct;
 import com.SEGroup.Domain.ProductCatalog.StoreSearchEntry;
 import com.SEGroup.Infrastructure.Repositories.InMemoryProductCatalog;
-
-import java.util.Map;
-
 
 public interface Discount {
 

@@ -1,7 +1,8 @@
-package com.SEGroup.Domain.Store.Discount;
+package com.SEGroup.Domain.Discount.Numerical;
 
 
 import com.SEGroup.Domain.ProductCatalog.StoreSearchEntry;
+import com.SEGroup.Domain.Discount.Discount;
 import com.SEGroup.Infrastructure.Repositories.InMemoryProductCatalog;
 
 import java.util.List;
@@ -9,14 +10,13 @@ import java.util.List;
 /**
  * A discount that returns the maximum value from a set of discounts.
  */
-public class MaxDiscount implements Discount{
-    private final List<Discount> discounts;
+public class MaxDiscount extends NumericalComposite {
     private double lastComputedDiscount = 0;          // Stores last calculated discount for reporting
     private String Description = "None";              // Description of the best discount
 
 
     public MaxDiscount(List<Discount> discounts) {
-        this.discounts = discounts;
+        super(discounts);
     }
 
     @Override
@@ -24,7 +24,7 @@ public class MaxDiscount implements Discount{
         double maxDiscount = 0.0;
         String Desc = "None";
 
-        for (Discount discount : discounts) {
+        for (Discount discount : discountList) {
             double discountValue = discount.calculate(entries, catalog);
             if (discountValue > maxDiscount) {
                 maxDiscount = discountValue;

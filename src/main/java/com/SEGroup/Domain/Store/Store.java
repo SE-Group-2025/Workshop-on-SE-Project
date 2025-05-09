@@ -1,5 +1,5 @@
 package com.SEGroup.Domain.Store;
-import com.SEGroup.Domain.Store.Discount.Discount;
+import com.SEGroup.Domain.Discount.Discount;
 
 import java.util.ArrayList;
 import java.util.Collection;

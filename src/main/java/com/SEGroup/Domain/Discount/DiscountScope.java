@@ -1,9 +1,7 @@
-package com.SEGroup.Domain.Store.Discount;
+package com.SEGroup.Domain.Discount;
 
 import com.SEGroup.Domain.ProductCatalog.StoreSearchEntry;
 import com.SEGroup.Infrastructure.Repositories.InMemoryProductCatalog;
-
-import java.util.List;
 
 /**
  * Represents the scope of a discount – whether it's applied to a specific product, category, or store.
