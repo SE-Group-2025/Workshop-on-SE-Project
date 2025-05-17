@@ -64,7 +64,7 @@ public class BidUsersView extends VerticalLayout implements BeforeEnterObserver 
 
             Button reject = new Button("Reject");
             reject.addThemeVariants(ButtonVariant.LUMO_ERROR);
-            reject.addClickListener(e -> presenter.rejectBid(req.email()));
+            reject.addClickListener(e -> presenter.rejectBid(req.email(), req.amount()));
 
             return new HorizontalLayout(accept, reject);
         }).setHeader("Actions");

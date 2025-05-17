@@ -18,7 +18,22 @@ import java.util.function.Consumer;
 @Service
 public class NotificationBroadcastService {
     private final Executor executor = Executors.newSingleThreadExecutor();
-    private final Map<String, Map<Integer, Consumer<Notification>>> listeners = new ConcurrentHashMap<>();
+
+    // Store both UI and listener together for each user
+    private static class UIListenerPair {
+        final UI ui;
+        final Consumer<Notification> listener;
+
+        UIListenerPair(UI ui, Consumer<Notification> listener) {
+            this.ui = ui;
+            this.listener = listener;
+        }
+    }
+
+    private final Map<String, Map<Integer, UIListenerPair>> listeners = new ConcurrentHashMap<>();
+    /* ------------------- new: per-user history ---------------------------- */
+    private final ConcurrentHashMap<String,
+            java.util.List<Notification>> history = new ConcurrentHashMap<>();
 
     /**
      * Register a UI to receive notifications for a specific user.
@@ -30,16 +45,16 @@ public class NotificationBroadcastService {
      */
     public Registration register(String userId, UI ui, Consumer<Notification> listener) {
         // Get or create a map of UI listeners for this user
-        Map<Integer, Consumer<Notification>> userListeners = listeners.computeIfAbsent(
+        Map<Integer, UIListenerPair> userListeners = listeners.computeIfAbsent(
                 userId, id -> new ConcurrentHashMap<>());
 
-        // Add this UI's listener
-        userListeners.put(ui.getUIId(), listener);
+        // Add this UI's listener with a reference to the UI instance
+        userListeners.put(ui.getUIId(), new UIListenerPair(ui, listener));
 
         // Return a registration object to remove this listener
         return () -> {
             synchronized (listeners) {
-                Map<Integer, Consumer<Notification>> userMap = listeners.get(userId);
+                Map<Integer, UIListenerPair> userMap = listeners.get(userId);
                 if (userMap != null) {
                     userMap.remove(ui.getUIId());
                     if (userMap.isEmpty()) {
@@ -56,27 +71,33 @@ public class NotificationBroadcastService {
      * @param userId The ID of the user to send the notification to
      * @param notification The notification to send
      */
+    /* --------------------------------------------------------------------- */
+    /* NEW broadcast – pushes the event *and* saves it for later retrieval   */
+    /* --------------------------------------------------------------------- */
     public void broadcast(String userId, Notification notification) {
+
         if (userId == null || notification == null) return;
 
-        // Get the listeners for this user
-        Map<Integer, Consumer<Notification>> userListeners = listeners.get(userId);
+        /* 1) remember it --------------------------------------------------- */
+        history.computeIfAbsent(userId, k -> java.util.Collections.synchronizedList(
+                new java.util.ArrayList<>())).add(notification);
+
+        /* 2) push it to every live UI ------------------------------------- */
+        Map<Integer, UIListenerPair> userListeners = listeners.get(userId);
         if (userListeners != null) {
-            // Schedule the broadcast on a background thread
-            executor.execute(() -> {
-                userListeners.forEach((uiId, listener) -> {
-                    try {
-                        // Find the UI by ID
-                        UI ui = UI.getCurrent();
-                        if (ui != null && ui.getUIId() == uiId && ui.isAttached()) {
-                            // Update the UI safely
-                            ui.access(() -> listener.accept(notification));
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Error broadcasting notification to UI " + uiId + ": " + e.getMessage());
-                    }
-                });
-            });
+            executor.execute(() -> userListeners.values().forEach(pair -> {
+                if (pair.ui != null && pair.ui.isAttached()) {
+                    pair.ui.access(() -> pair.listener.accept(notification));
+                }
+            }));
         }
     }
+
+    /* --------------------------------------------------------------------- */
+    /* helper - the NotificationView fetches the accumulated list            */
+    /* --------------------------------------------------------------------- */
+    public java.util.List<Notification> getHistory(String userId) {
+        return history.getOrDefault(userId, java.util.Collections.emptyList());
+    }
+
 }

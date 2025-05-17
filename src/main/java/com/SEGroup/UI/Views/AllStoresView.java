@@ -231,7 +231,7 @@ public class AllStoresView extends VerticalLayout {
 
         Button viewBtn = new Button("View Store", e -> {
             // Use direct path navigation instead of RouteParameters
-            UI.getCurrent().navigate("store/" + store.name());
+            UI.getCurrent().navigate(StoreView.class,store.name());
         });
         viewBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 

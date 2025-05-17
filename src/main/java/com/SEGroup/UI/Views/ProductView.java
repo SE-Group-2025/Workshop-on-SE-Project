@@ -1,12 +1,18 @@
 package com.SEGroup.UI.Views;
 
 import com.SEGroup.DTO.AuctionDTO;
+import com.SEGroup.DTO.BidDTO;
 import com.SEGroup.DTO.ShoppingProductDTO;
-import com.SEGroup.UI.MainLayout;
+import com.SEGroup.Service.Result;
+import com.SEGroup.UI.*;
 import com.SEGroup.UI.Presenter.ProductPresenter;
+import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.Html;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -23,6 +29,7 @@ import java.text.DecimalFormat;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.List;
 
 /**
  * View for displaying a single product's details.
@@ -47,6 +54,8 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
         this.view = view;
     }
 
+
+
     @Override
     public void setParameter(BeforeEvent event, @WildcardParameter String parameter) {
         // Extract productId and storeName from the URL
@@ -60,7 +69,11 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
                 return;
             }
 
-            this.presenter = new ProductPresenter(this, productId, storeName);
+            // Get the DirectNotificationSender from ServiceLocator
+            DirectNotificationSender notificationSender = ServiceLocator.getDirectNotificationSender();
+
+            // Create the presenter with the notification sender
+            this.presenter = new ProductPresenter(this, productId, storeName, notificationSender);
             this.isOwner = presenter.isOwner();
             presenter.loadAuctionInfo();
             presenter.loadProductDetails();
@@ -68,70 +81,185 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
             showError("Error loading product: " + e.getMessage());
         }
     }
-
+    /**
+     * Displays auction information with enhanced UI and real-time updates
+     */
     public void displayAuctionInfo(AuctionDTO auction) {
         if (auction == null) {
             return;
         }
-        if (isOwner) {
-            Button startAuctionBtn = new Button("Start Auction", VaadinIcon.GAVEL.create());
-            startAuctionBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
-            startAuctionBtn.addClickListener(e -> openStartAuctionDialog());
-            addComponentAtIndex(0, startAuctionBtn);
-        }
 
-        // 1) convert the Date->Instant for formatting
-        Instant endInstant = auction.getEndTime().toInstant();
-        String endsAt = endInstant
-                .atZone(ZoneId.systemDefault())
-                .toLocalTime()
-                .toString();
-
-        // 2) optionally show "time remaining"
-        long millisLeft = auction.getTimeRemainingMillis();
-        long seconds = (millisLeft / 1000) % 60;
-        long minutes = (millisLeft / (1000 * 60)) % 60;
-        long hours   = millisLeft / (1000 * 60 * 60);
-        String remaining = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-
-        Span currentBid  = new Span("Current bid: $ " + auction.getHighestBid());
-        Span endsAtSpan  = new Span("Ends at: " + endsAt);
-        Span remainSpan  = new Span("Time left: " + remaining);
-
-        TextField bidField = new TextField("Your bid");
-        bidField.setWidth("150px");
-
-        Button bidBtn = new Button("Place Bid", VaadinIcon.GAVEL.create());
-        bidBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-
-        TextField quantityField = new TextField("Your quantity");
-        quantityField.setWidth("150px");
-        bidBtn.addClickListener(e -> {
-            try {
-                double amt = Double.parseDouble(bidField.getValue());
-                Integer qu = Integer.parseInt((quantityField.getValue()));
-                presenter.placeBid(amt, qu);
-            } catch (NumberFormatException ex) {
-                showError("Please enter a valid number");
+        /* ---------- 1. wipe previous auction UI (container + owner buttons) ---- */
+        getChildren().forEach(c -> {
+            if (c.getElement().hasAttribute("auction-bar") ||      // the blue box
+                    c.getElement().hasAttribute("owner-controls")) {   // the buttons row
+                remove(c);
             }
         });
 
-        HorizontalLayout auctionBar = new HorizontalLayout(
-                currentBid,
-                endsAtSpan,
-                remainSpan,
-                bidField,
-                quantityField,
-                bidBtn
-        );
-        auctionBar.getStyle()
-                .set("border", "1px solid var(--lumo-contrast-20pct)")
+        if (isOwner) {
+            HorizontalLayout ownerControls = new HorizontalLayout();
+            ownerControls.getElement().setAttribute("owner-controls", "true");
+
+            Button manageAuctionBtn = new Button("Manage Auction", VaadinIcon.GAVEL.create());
+            manageAuctionBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            manageAuctionBtn.addClickListener(e -> openStartAuctionDialog());
+
+            Button viewBidsBtn = new Button("View All Bids", VaadinIcon.LIST.create());
+            viewBidsBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+            viewBidsBtn.addClickListener(e -> presenter.viewAllBids());
+
+            ownerControls.add(manageAuctionBtn, viewBidsBtn);
+            ownerControls.setSpacing(true);
+            addComponentAtIndex(0, ownerControls);
+        }
+
+        // Format auction end time
+        Instant endInstant = auction.getEndTime().toInstant();
+        String endsAt = endInstant
+                .atZone(ZoneId.systemDefault())
+                .toLocalDateTime()
+                .toString()
+                .replace("T", " ");
+
+        // Calculate time remaining
+        long millisLeft = auction.getTimeRemainingMillis();
+        long seconds = (millisLeft / 1000) % 60;
+        long minutes = (millisLeft / (1000 * 60)) % 60;
+        long hours = millisLeft / (1000 * 60 * 60);
+        String remaining = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+
+        // Create enhanced auction display
+        H3 auctionHeader = new H3("Live Auction");
+        auctionHeader.getStyle()
+                .set("margin", "0")
+                .set("color", "var(--lumo-primary-color)");
+
+        // Current bid display with formatting
+        HorizontalLayout bidInfo = new HorizontalLayout();
+
+        Span bidLabel, bidValue;
+        if (auction.getHighestBid() != null) {
+            bidLabel = new Span("Current bid: ");
+            bidValue = new Span("$" + auction.getHighestBid());
+            bidValue.getStyle()
+                    .set("font-weight", "bold")
+                    .set("color", "var(--lumo-primary-color)");
+        } else {
+            bidLabel = new Span("Starting price: ");
+            bidValue = new Span("$" + auction.getStartingPrice());
+            bidValue.getStyle()
+                    .set("font-weight", "bold");
+        }
+
+        bidInfo.add(bidLabel, bidValue);
+
+        // Highest bidder info (if available)
+        if (auction.getHighestBidder() != null) {
+            Span highestBidder = new Span("Highest bidder: " + auction.getHighestBidder());
+            highestBidder.getStyle()
+                    .set("margin-left", "20px")
+                    .set("font-style", "italic");
+            bidInfo.add(highestBidder);
+        }
+
+        // Timer display with countdown
+        Div timerInfo = new Div();
+        Span endsAtSpan = new Span("Ends at: " + endsAt);
+        Span remainSpan = new Span("Time remaining: " + remaining);
+
+        // Highlight short remaining time
+        if (millisLeft < 60000) { // Less than 1 minute
+            remainSpan.getStyle()
+                    .set("color", "red")
+                    .set("font-weight", "bold");
+        } else if (millisLeft < 300000) { // Less than 5 minutes
+            remainSpan.getStyle()
+                    .set("color", "orange")
+                    .set("font-weight", "bold");
+        }
+
+        timerInfo.add(endsAtSpan, new Html("<br>"), remainSpan);
+
+        // Bidding form for non-owners
+        Div bidForm = new Div();
+        if (!isOwner && SecurityContextHolder.isLoggedIn()) {
+            TextField bidField = new TextField("Your bid");
+            bidField.setWidth("150px");
+            bidField.setPlaceholder("Enter amount");
+
+            // Set minimum value hint
+            double minBid = auction.getHighestBid() != null
+                    ? auction.getHighestBid() + 0.01
+                    : auction.getStartingPrice();
+            bidField.setHelperText("Min: $" + String.format("%.2f", minBid));
+
+
+            Button bidBtn = new Button("Place Bid", VaadinIcon.GAVEL.create());
+            bidBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            bidBtn.addClickListener(e -> {
+                try {
+                    double amt = Double.parseDouble(bidField.getValue());
+
+
+                    // Display busy indicator while processing
+                    bidBtn.setEnabled(false);
+                    bidBtn.setText("Placing bid...");
+
+                    // Use a small delay to show the UI update
+                    UI.getCurrent().access(() -> {
+                        presenter.placeBid(amt);
+                        bidBtn.setEnabled(true);
+                        bidBtn.setText("Place Bid");
+                    });
+                } catch (NumberFormatException ex) {
+                    showError("Please enter valid numbers");
+                }
+            });
+
+            HorizontalLayout formLayout = new HorizontalLayout(bidField,  bidBtn);
+            formLayout.setAlignItems(FlexComponent.Alignment.BASELINE);
+            bidForm.add(formLayout);
+        } else if (!SecurityContextHolder.isLoggedIn()) {
+            // If not logged in, show login prompt
+            Span loginPrompt = new Span("Log in to place bids");
+            Button loginBtn = new Button("Log In", VaadinIcon.SIGN_IN.create());
+            loginBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            loginBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("login")));
+
+            HorizontalLayout loginLayout = new HorizontalLayout(loginPrompt, loginBtn);
+            loginLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+            bidForm.add(loginLayout);
+        }
+
+        // Create auction container with all elements
+        VerticalLayout auctionContainer = new VerticalLayout();
+        auctionContainer.setSpacing(false);
+        auctionContainer.setPadding(true);
+
+        // Create auction status bar
+        HorizontalLayout statusBar = new HorizontalLayout(auctionHeader, bidInfo, timerInfo);
+        statusBar.setWidthFull();
+        statusBar.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+
+        auctionContainer.add(statusBar);
+
+        // Add bid form if needed
+        if (bidForm.getComponentCount() > 0) {
+            auctionContainer.add(new Hr(), bidForm);
+        }
+
+        // Style the container
+        auctionContainer.getElement().setAttribute("auction-bar", "true");
+        auctionContainer.getStyle()
+                .set("border", "1px solid var(--lumo-primary-color)")
                 .set("padding", "1em")
                 .set("border-radius", "8px")
-                .set("margin-bottom", "1em");
+                .set("margin-bottom", "1em")
+                .set("background-color", "var(--lumo-contrast-5pct)");
 
-        // insert at top
-        addComponentAtIndex(0, auctionBar);
+        // Add to view at the top
+        addComponentAtIndex(0, auctionContainer);
     }
 
     public void displayProduct(ShoppingProductDTO product) {
@@ -238,7 +366,6 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
         addToCartBtn.addClickListener(e -> presenter.addToCart());
 
         TextField amount = new TextField("BID Offer Price");
-        TextField quantity = new TextField("BID Offer Quantity");
         Button bidBuyBtn = new Button("Enter", VaadinIcon.GAVEL.create());
         bidBuyBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
 
@@ -255,7 +382,7 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
         );
 
         bidBuyBtn.addClickListener(e -> {
-            presenter.bidBuy(Double.parseDouble(amount.getValue()), Integer.parseInt(quantity.getValue()));
+            presenter.bidBuy(Double.parseDouble(amount.getValue()));
         });
 
         // Organize content in layouts
@@ -280,7 +407,7 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
                 navigationBar,
                 productLayout,
                 addToCartBtn,
-                new HorizontalLayout(amount,quantity),
+                new HorizontalLayout(amount),
                 new HorizontalLayout(bidBuyBtn, bidUsersBtn)
         );
         content.setAlignSelf(FlexComponent.Alignment.START, navigationBar);
@@ -449,6 +576,169 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
         dlg.open();
     }
 
+    /**
+     * Opens a dialog showing all bids for the current product
+     */
+    public void openBidsDialog() {
+
+
+        Dialog bidsDialog = new Dialog();
+        bidsDialog.setHeaderTitle("Offers for " + presenter.getProductName());
+        bidsDialog.setWidth("800px");
+
+        Result<List<BidDTO>> bidsResult = presenter.loadProductBids();
+
+        if (!bidsResult.isSuccess() || bidsResult.getData() == null || bidsResult.getData().isEmpty()) {
+            bidsDialog.add(createNoBidsMessage());
+        } else {
+            // Create a grid for bids
+            Grid<BidDTO> bidsGrid = new Grid<>();
+            bidsGrid.addColumn(BidDTO::getBidderEmail).setHeader("Customer").setAutoWidth(true);
+            bidsGrid.addColumn(bid -> String.format("$%.2f", bid.getPrice())).setHeader("Offered Price").setAutoWidth(true);
+
+            // Add actions column
+            bidsGrid.addComponentColumn(bid -> {
+                HorizontalLayout actions = new HorizontalLayout();
+
+                Button acceptBtn = new Button("Accept", VaadinIcon.CHECK.create());
+                acceptBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
+
+                Button rejectBtn = new Button("Decline", VaadinIcon.CLOSE_SMALL.create());
+                rejectBtn.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+
+                Button counterBtn = new Button("Counter", VaadinIcon.EXCHANGE.create());
+                counterBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST, ButtonVariant.LUMO_SMALL);
+
+                acceptBtn.addClickListener(e -> {
+                    Result<Void> result = presenter.acceptBid(bid.getBidderEmail(), bid.getPrice());
+                    if (result.isSuccess()) {
+                        showSuccess("Offer accepted! The customer has been notified.");
+                        bidsDialog.close();
+                    } else {
+                        showError("Error accepting offer: " + result.getErrorMessage());
+                    }
+                });
+
+                rejectBtn.addClickListener(e -> {
+                    presenter.rejectBid(bid.getBidderEmail(), bid.getPrice());
+                    showSuccess("Offer declined. The customer has been notified.");
+                    bidsDialog.close();
+                });
+
+
+                counterBtn.addClickListener(e -> {
+                    makeCounterOffer(bid.getBidderEmail(), bid.getPrice());
+                    bidsDialog.close();
+                });
+
+                actions.add(acceptBtn, rejectBtn, counterBtn);
+                actions.setSpacing(true);
+                return actions;
+            }).setHeader("Actions").setFlexGrow(1);
+
+            bidsGrid.setItems(bidsResult.getData());
+            bidsGrid.setHeight("400px");
+
+            bidsDialog.add(bidsGrid);
+        }
+
+        Button closeBtn = new Button("Close", e -> bidsDialog.close());
+        closeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        bidsDialog.getFooter().add(closeBtn);
+
+        bidsDialog.open();
+    }
+
+    /**
+     * Opens a dialog to make a counter offer to a bidder
+     */
+    private void makeCounterOffer(String bidderEmail, double originalPrice) {
+        Dialog counterDialog = new Dialog();
+        counterDialog.setHeaderTitle("Make Counter Offer");
+
+        TextField priceField = new TextField("Counter Price");
+        priceField.setValue(String.valueOf(originalPrice));
+        priceField.setPrefixComponent(new Span("$"));
+
+        TextField messageField = new TextField("Additional Message");
+        messageField.setPlaceholder("Optional message to the customer");
+
+        Button sendBtn = new Button("Send Counter Offer", e -> {
+            try {
+                double counterPrice = Double.parseDouble(priceField.getValue());
+                String additionalMessage = !messageField.isEmpty() ? messageField.getValue() : null;
+                presenter.counterBid(bidderEmail, counterPrice, additionalMessage);
+                showSuccess("Counter offer sent to customer");
+                counterDialog.close();
+            } catch (NumberFormatException ex) {
+                showError("Please enter a valid price");
+            }
+        });
+
+        sendBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button cancelBtn = new Button("Cancel", e -> counterDialog.close());
+
+        VerticalLayout layout = new VerticalLayout(
+                new Paragraph("The customer will be notified of your counter offer"),
+                priceField,
+                messageField
+        );
+
+        counterDialog.add(layout);
+        counterDialog.getFooter().add(cancelBtn, sendBtn);
+
+        counterDialog.open();
+    }
+
+    /**
+     * Shows an informational message
+     */
+    public void showInfo(String message) {
+        Notification notification = Notification.show(message, 3000, Notification.Position.TOP_END);
+        notification.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+    }
+    /**
+     * Shows a section separator with a title
+     */
+    private Component createSectionDivider(String title) {
+        HorizontalLayout divider = new HorizontalLayout();
+        divider.setWidthFull();
+
+        Hr leftLine = new Hr();
+        leftLine.setWidth("30%");
+
+        H5 sectionTitle = new H5(title);
+        sectionTitle.getStyle()
+                .set("margin", "0")
+                .set("color", "var(--lumo-secondary-text-color)");
+
+        Hr rightLine = new Hr();
+        rightLine.setWidth("30%");
+
+        divider.add(leftLine, sectionTitle, rightLine);
+        divider.setAlignItems(FlexComponent.Alignment.CENTER);
+        divider.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+
+        return divider;
+    }
+
+    /**
+     * Shows a message when no bids are available
+     */
+    private Component createNoBidsMessage() {
+        Div container = new Div();
+        container.getStyle()
+                .set("text-align", "center")
+                .set("padding", "20px")
+                .set("color", "var(--lumo-secondary-text-color)")
+                .set("font-style", "italic");
+
+        container.add(new Span("No bids have been placed yet"));
+
+        return container;
+    }
+
     public void showSuccess(String message) {
         Notification notification = Notification.show(message, 3000, Notification.Position.TOP_END);
         notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -457,6 +747,76 @@ public class ProductView extends VerticalLayout implements HasUrlParameter<Strin
     public void showError(String message) {
         Notification notification = Notification.show(message, 4000, Notification.Position.MIDDLE);
         notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+    }
+
+    /**
+     * Shows auction ended with a winner
+     */
+    public void showAuctionEnded(String winnerEmail, double winningBid) {
+        // Remove auction display if it exists
+        getChildren().forEach(component -> {
+            if (component instanceof HorizontalLayout &&
+                    component.getElement().hasAttribute("auction-bar")) {
+                remove(component);
+            }
+        });
+
+        // Create auction result display
+        HorizontalLayout resultLayout = new HorizontalLayout();
+        resultLayout.setWidthFull();
+        resultLayout.getElement().setAttribute("auction-bar", "true");
+
+        H3 header = new H3("Auction Completed");
+        header.getStyle().set("color", "var(--lumo-primary-color)");
+
+        Span winnerInfo = new Span("Winner: " + winnerEmail + " with bid of $" + winningBid);
+        winnerInfo.getStyle().set("font-weight", "bold");
+
+        resultLayout.add(header, winnerInfo);
+        resultLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        resultLayout.getStyle()
+                .set("border", "1px solid var(--lumo-primary-color)")
+                .set("padding", "1em")
+                .set("border-radius", "8px")
+                .set("margin-bottom", "1em")
+                .set("background-color", "var(--lumo-contrast-5pct)");
+
+        addComponentAtIndex(0, resultLayout);
+    }
+
+    /**
+     * Shows auction ended with no winner
+     */
+    public void showAuctionEndedNoWinner() {
+        // Remove auction display if it exists
+        getChildren().forEach(component -> {
+            if (component instanceof HorizontalLayout &&
+                    component.getElement().hasAttribute("auction-bar")) {
+                remove(component);
+            }
+        });
+
+        // Create auction result display
+        HorizontalLayout resultLayout = new HorizontalLayout();
+        resultLayout.setWidthFull();
+        resultLayout.getElement().setAttribute("auction-bar", "true");
+
+        H3 header = new H3("Auction Completed");
+        header.getStyle().set("color", "var(--lumo-primary-color)");
+
+        Span noWinnerInfo = new Span("No bids were placed. Item not sold.");
+        noWinnerInfo.getStyle().set("font-style", "italic");
+
+        resultLayout.add(header, noWinnerInfo);
+        resultLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        resultLayout.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("padding", "1em")
+                .set("border-radius", "8px")
+                .set("margin-bottom", "1em")
+                .set("background-color", "var(--lumo-contrast-5pct)");
+
+        addComponentAtIndex(0, resultLayout);
     }
 
     public String getProductId() {

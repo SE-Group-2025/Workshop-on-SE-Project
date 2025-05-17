@@ -20,6 +20,7 @@ import com.vaadin.flow.shared.communication.PushMode;
 import com.vaadin.flow.shared.ui.Transport;
 import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.annotation.UIScope;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import reactor.core.Disposable;
@@ -28,6 +29,8 @@ import reactor.core.scheduler.Schedulers;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+
 
 @SpringComponent
 @UIScope
@@ -332,16 +335,41 @@ public class MainLayout extends AppLayout {
     }
 
     @Override
+
     protected void onAttach(AttachEvent event) {
         super.onAttach(event);
-        // only subscribe once
-        if (notificationSubscription == null && SecurityContextHolder.isLoggedIn()) {
+
+        // Unsubscribe first if already subscribed
+        if (notificationSubscription != null && !notificationSubscription.isDisposed()) {
+            notificationSubscription.dispose();
+            notificationSubscription = null;
+        }
+
+        // Subscribe to notifications if user is logged in
+        if (SecurityContextHolder.isLoggedIn()) {
             String user = SecurityContextHolder.email();
+            System.out.println("MainLayout subscribing to notifications for: " + user);
+
             UI ui = event.getUI();
-            notificationSubscription = notificationEndpoint
-                    .subscribe(user)
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .subscribe(n -> ui.access(() -> handleNewNotification(n.getMessage())));
+            try {
+                notificationSubscription = notificationEndpoint
+                        .subscribe(user)
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe(
+                                notification -> {
+                                    if (ui.isAttached()) {
+                                        ui.access(() -> handleNewNotification(notification.getMessage()));
+                                    }
+                                },
+                                error -> System.err.println("Error in MainLayout notification subscription: " + error.getMessage()),
+                                () -> System.out.println("MainLayout notification subscription completed for user: " + user)
+                        );
+
+                System.out.println("Successfully subscribed to notifications in MainLayout");
+            } catch (Exception e) {
+                System.err.println("Failed to subscribe to notifications in MainLayout: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
     }
 
@@ -528,12 +556,22 @@ public class MainLayout extends AppLayout {
 
     // Method to handle a new notification
     public void handleNewNotification(String message) {
-        // Increase notification count
-        increaseNotificationCount();
+        try {
+            // Increase notification count
+            increaseNotificationCount();
 
-        // Show a toast notification
-        Notification toast = Notification.show(message, 3000, Notification.Position.TOP_END);
-        toast.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+            // Show a toast notification
+            Notification toast = Notification.show(
+                    message,
+                    3000,
+                    com.vaadin.flow.component.notification.Notification.Position.TOP_END
+            );
+            toast.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+
+            System.out.println("Notification displayed: " + message);
+        } catch (Exception e) {
+            System.err.println("Error handling notification: " + e.getMessage());
+        }
     }
 
     public void setUserName(String userName) {

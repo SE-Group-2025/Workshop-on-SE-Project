@@ -3,30 +3,26 @@ import com.SEGroup.UI.MainLayout;
 import com.SEGroup.Domain.Store.Store;
 import com.SEGroup.Infrastructure.Repositories.StoreRepository;
 import com.SEGroup.Service.StoreService;
+import com.SEGroup.UI.Presenter.ReviewPresenter;
+import com.SEGroup.UI.ServiceLocator;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
-import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Route(value = "store/:storeName/reviews", layout = MainLayout.class)
-public class ReviewView extends VerticalLayout implements BeforeEnterObserver {
+@Route(value = "store/reviews", layout = MainLayout.class)
+public class ReviewView extends VerticalLayout implements HasUrlParameter<String> {
 
-    private final StoreService storeService;
-    private final StoreRepository storeRepository;
-    private final Grid<StoreRatingDisplay> grid = new Grid<>(StoreRatingDisplay.class);
-    private String currentStoreName;
+    public final Grid<StoreRatingDisplay> grid = new Grid<>(StoreRatingDisplay.class);
+    private final ReviewPresenter reviewPresenter = new ReviewPresenter(this);
 
-    @Autowired
-    public ReviewView(StoreService storeService, StoreRepository storeRepository) {
-        this.storeService = storeService;
-        this.storeRepository = storeRepository;
+    public ReviewView() {
 
         setSpacing(true);
         setPadding(true);
@@ -36,24 +32,11 @@ public class ReviewView extends VerticalLayout implements BeforeEnterObserver {
     }
 
     @Override
-    public void beforeEnter(BeforeEnterEvent event) {
-        currentStoreName = event.getRouteParameters().get("storeName").orElse("Unknown Store");
-
-        H2 title = new H2("Reviews for " + currentStoreName);
-        add(title);
-
-        loadReviews(currentStoreName);
+    public void setParameter(BeforeEvent event, String storeName) {
+        add(new H2("Reviews for “" + storeName + "”"));
+        reviewPresenter.loadReviews(storeName);
     }
 
-    private void loadReviews(String storeName) {
-        Map<String, Store.Rating> ratings = storeRepository.findRatingsByStore(storeName);
-
-        List<StoreRatingDisplay> displayList = ratings.entrySet().stream()
-                .map(entry -> new StoreRatingDisplay(entry.getKey(), entry.getValue().getScore(), entry.getValue().getReview()))
-                .collect(Collectors.toList());
-
-        grid.setItems(displayList);
-    }
 
     public static class StoreRatingDisplay {
         private String reviewerEmail;
@@ -70,5 +53,6 @@ public class ReviewView extends VerticalLayout implements BeforeEnterObserver {
         public int getRating() { return rating; }
         public String getReviewText() { return reviewText; }
     }
-}
 
+
+}

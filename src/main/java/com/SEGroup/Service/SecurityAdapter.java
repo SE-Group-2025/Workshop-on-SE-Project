@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.SEGroup.Domain.IAuthenticationService;
 import com.SEGroup.Infrastructure.PasswordEncoder;
 import com.SEGroup.Infrastructure.Security;
+
 import org.springframework.stereotype.Component;
 /**
  * SecurityAdapter class implements the IAuthenticationService interface.
