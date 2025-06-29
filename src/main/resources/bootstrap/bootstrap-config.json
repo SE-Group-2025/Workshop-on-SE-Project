@@ -1,0 +1,12 @@
+{
+  "datasource": {
+    "url": "jdbc:h2:file:./data/prod-db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=TRUE",
+    "username": "sa",
+    "password": ""
+  },
+  "externalServices": {
+    "payment":  { "endpoint": "https://mock-pay.local/api",  "timeoutMillis": 5000 },
+    "shipping": { "endpoint": "https://mock-ship.local/api", "timeoutMillis": 8000 }
+  }
+}
+

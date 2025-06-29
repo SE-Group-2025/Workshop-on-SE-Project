@@ -13,12 +13,20 @@ import java.util.List;
 @Profile({"db", "prod"})
 public interface JpaStoreRepository extends JpaRepository<Store, String> {
     Store findByName(String name);
+
     boolean existsByName(String name);
+
     @Query(value = """
-    SELECT s.* FROM stores s
-    JOIN store_owners o ON s.name = o.store_name
-    WHERE o.email = :ownerEmail
+
+            SELECT * FROM STORES s
+    WHERE s.name IN (
+        SELECT so.store_name FROM STORE_OWNERS so WHERE so.email = :email
+        UNION
+        SELECT sm.store_name FROM STORE_MANAGERS sm WHERE sm.manager_email = :email
+    )
+    OR s.email = :email
     """, nativeQuery = true)
-    List<Store> getStoresOwnedBy(@Param("ownerEmail") String OwnerEmail);
+    List<Store> getStoresOwnedBy(@Param("email") String email);
+
 
 }

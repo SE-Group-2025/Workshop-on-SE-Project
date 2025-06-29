@@ -22,7 +22,7 @@ public class Store {
     @Column(name = "name", unique = true, nullable = false)
     private String name;
 
-    @Column(name = "email", unique = true, nullable = false)
+    @Column(name = "email", unique = false, nullable = false)
     private String founderEmail;
 
     @Column(name = "is_active")

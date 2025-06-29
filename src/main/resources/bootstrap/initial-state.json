@@ -1,0 +1,51 @@
+[
+  { "useCase": "guest-registration", "args": ["u1@example.com", "p1", {}] },
+  { "useCase": "guest-registration", "args": ["u2@example.com", "p2", {}] },
+  { "useCase": "guest-registration", "args": ["u3@example.com", "p3", {}] },
+  { "useCase": "guest-registration", "args": ["u4@example.com", "p4", {}] },
+  { "useCase": "guest-registration", "args": ["u5@example.com", "p5", {}] },
+  { "useCase": "guest-registration", "args": ["u6@example.com", "p6", {}] },
+
+
+  { "useCase": "login",       "args": ["u2@example.com", "p2"] },
+  { "useCase": "open-shop",   "args": ["u2@example.com", "Bamba-Shop", {
+    "description": "The crunchiest peanut snack heaven",
+    "email"      : "support@bambashop.io"
+  }]},
+
+  { "useCase": "add-product-to-catalog",
+    "args": [
+      "SNACK-001",
+      "Bamba 80 g Classic",
+      "Osem",
+      "Crunchy peanut snack",
+      ["Snacks", "Peanut"]
+    ]
+  },
+  { "useCase": "add-product-to-store",
+    "args": [
+      "u2@example.com",
+      "Bamba-Shop",
+      "SNACK-001",
+      "Bamba 80 g Classic",
+      "Crunchy peanut snack",
+      7.90,
+      120
+    ]},
+
+
+  { "useCase": "appoint-owner",
+    "args" : ["u2@example.com", "Bamba-Shop", "u3@example.com"] },
+
+  { "useCase": "appoint-manager",
+    "args" : [
+      "u2@example.com",
+      "Bamba-Shop",
+      "u4@example.com",
+      ["VIEW_ONLY","MANAGE_PRODUCTS"]
+    ] },
+
+  { "useCase": "logout", "args": ["u2@example.com"] },
+  { "useCase": "logout", "args": ["u3@example.com"] },
+  { "useCase": "logout", "args": ["u4@example.com"] }
+]
