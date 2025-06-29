@@ -18,6 +18,7 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 import static org.mockito.Mockito.*;
 import javax.crypto.SecretKey;
+import java.io.InputStream;
 
 /**
  * A centralized service locator for retrieving singleton service instances.
@@ -51,7 +52,7 @@ public class ServiceLocator implements ApplicationContextAware {
     private static StoreService storeService;
     private static TransactionService transactionService;
     private static IShippingService shippingService;
-
+    private static InitFileRunner initFileRunner;
     // Notifaction
     private static ReportCenter reportCenter;
     public static void initialize(IGuestRepository guests,
@@ -78,8 +79,26 @@ public class ServiceLocator implements ApplicationContextAware {
         storeService = new StoreService(storeRepository, productCatalog, authService, userRepository, notificationCenter);
         shippingService = mock(IShippingService.class);
         transactionService = new TransactionService(authService, paymentGateway, transactionRepository, storeRepository, userRepository, shippingService, notificationCenter,guestRepository);
+        initFileRunner = new InitFileRunner(guestService,userService,storeService);
+        applyBootstrapJson();
     }
+    private static void applyBootstrapJson() {
+        try (InputStream in = ServiceLocator.class.getClassLoader()
+                .getResourceAsStream("bootstrap/initial-state.json")) {
 
+            if (in == null) {
+                LoggerWrapper.warning("[seeder] (bootstrap/initial-state.json missing)");
+                return;
+            }
+
+            initFileRunner.replayFile(in);
+            LoggerWrapper.info("[seeder] ✓ bootstrap script applied");
+
+        } catch (Exception ex) {
+            LoggerWrapper.error(ex.getMessage(), ex);
+            // keep running – just log the error
+        }
+    }
     public static INotificationCenter getNotificationCenter() {
         if (applicationContext != null) {
             return applicationContext.getBean(INotificationCenter.class);

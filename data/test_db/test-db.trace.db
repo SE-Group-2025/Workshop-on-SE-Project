@@ -620,3 +620,21 @@ Caused by: org.h2.mvstore.MVStoreException: The file is locked: C:/Users/talma/O
 	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81)
 	at org.h2.mvstore.MVStore.<init>(MVStore.java:286)
 	... 140 more
+2025-06-29 13:37:51.854401+03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLDataException: Value too long for column "ROLE BINARY VARYING(255)": "X'aced0005737200246a6176612e7574696c2e456e756d5365742453657269616c697a6174696f6e... (256)"; SQL statement:
+insert into user_store_roles (user_email,store_name,role) values (?,?,?) [22001-232]
+2025-06-29 13:38:38.798276+03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLDataException: Value too long for column "ROLE BINARY VARYING(255)": "X'aced0005737200246a6176612e7574696c2e456e756d5365742453657269616c697a6174696f6e... (256)"; SQL statement:
+insert into user_store_roles (user_email,store_name,role) values (?,?,?) [22001-232]
+2025-06-29 13:47:40.369564+03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLDataException: Value too long for column "ROLE BINARY VARYING(255)": "X'aced0005737200246a6176612e7574696c2e456e756d5365742453657269616c697a6174696f6e... (256)"; SQL statement:
+insert into user_store_roles (user_email,store_name,role) values (?,?,?) [22001-232]
+2025-06-29 13:50:13.149063+03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLDataException: Value too long for column "ROLE BINARY VARYING(255)": "X'aced0005737200246a6176612e7574696c2e456e756d5365742453657269616c697a6174696f6e... (256)"; SQL statement:
+insert into user_store_roles (user_email,store_name,role) values (?,?,?) [22001-232]
+2025-06-29 13:50:55.721602+03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLDataException: Value too long for column "ROLE BINARY VARYING(255)": "X'aced0005737200246a6176612e7574696c2e456e756d5365742453657269616c697a6174696f6e... (256)"; SQL statement:
+insert into user_store_roles (user_email,store_name,role) values (?,?,?) [22001-232]
+2025-06-29 13:51:56.208582+03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLDataException: Value too long for column "ROLE BINARY VARYING(255)": "X'aced0005737200246a6176612e7574696c2e456e756d5365742453657269616c697a6174696f6e... (256)"; SQL statement:
+insert into user_store_roles (user_email,store_name,role) values (?,?,?) [22001-232]

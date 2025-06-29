@@ -9,6 +9,7 @@ import com.SEGroup.Infrastructure.Repositories.RepositoryData.DbProductCatalog;
 import com.SEGroup.Infrastructure.Repositories.RepositoryData.DbStoreData;
 import com.SEGroup.Infrastructure.Repositories.RepositoryData.DbTransactionData;
 import com.SEGroup.Infrastructure.Repositories.RepositoryData.DbUserData;
+import com.SEGroup.Service.LoggerWrapper;
 import com.SEGroup.UI.ServiceLocator;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
 
+import java.io.InputStream;
 import java.util.Date;
 import java.util.List;
 
@@ -41,14 +43,16 @@ public class UnifiedDataSeeder implements ApplicationListener<ApplicationReadyEv
     private  TransactionRepository transactions;
     private final GuestRepository guests;
     private final ExternalPaymentAndShippingService shippingService;
-
+    private final InitFileRunner initFileRunner;
+    // JSON-script runner
     public UnifiedDataSeeder(
             UserRepository users,
             StoreRepository stores,
             ProductCatalogRepository catalog,
             TransactionRepository transactions,
             GuestRepository guests,
-            ExternalPaymentAndShippingService shippingService
+            ExternalPaymentAndShippingService shippingService,
+            InitFileRunner initFileRunner
     ) {
         this.users = users;
         this.stores = stores;
@@ -56,6 +60,7 @@ public class UnifiedDataSeeder implements ApplicationListener<ApplicationReadyEv
         this.transactions = transactions;
         this.guests = guests;
         this.shippingService = shippingService;
+        this.initFileRunner = initFileRunner;
     }
     @Autowired
     private JpaUserRepository jpaUserRepository;
@@ -63,6 +68,7 @@ public class UnifiedDataSeeder implements ApplicationListener<ApplicationReadyEv
     private JpaStoreRepository jpaStoreRepository;
     @Autowired
     private JpaTransactionRepository jpaTransactionRepository;
+
     @PostConstruct
     public void init() {
         //discount available
